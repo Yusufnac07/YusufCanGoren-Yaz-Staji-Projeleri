@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Çok Modlu RAG Akıllı Asistan - Test Konsolu</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .chat-bubble { animation: fadeIn 0.3s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 flex flex-col h-screen">
+
+  <!-- Header -->
+  <header class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between shadow-md">
+    <div class="flex items-center space-x-3">
+      <div class="bg-indigo-600 text-white p-2.5 rounded-xl shadow-lg">
+        <i class="fa-solid fa-brain text-xl"></i>
+      </div>
+      <div>
+        <h1 class="text-lg font-bold tracking-tight text-white">Çok Modlu RAG Akıllı Asistan</h1>
+        <p class="text-xs text-slate-400">Yusuf Can Gören • Ar-Ge Staj Projesi • FastAPI & ChromaDB</p>
+      </div>
+    </div>
+    <div class="flex items-center space-x-3">
+      <span id="backend-status" class="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Backend Bağlı (localhost:8000)
+      </span>
+      <button onclick="checkHealth()" class="text-slate-400 hover:text-white transition p-2 text-sm" title="Yenile">
+        <i class="fa-solid fa-arrows-rotate"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="flex-1 flex overflow-hidden">
+    
+    <!-- Sidebar / Doküman Yükleme & Materyal Listesi -->
+    <aside class="w-80 bg-slate-800/60 border-r border-slate-700/80 p-5 flex flex-col justify-between">
+      <div class="space-y-5">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-2">
+            <i class="fa-solid fa-file-arrow-up text-indigo-400"></i> Doküman Yükle (RAG)
+          </h2>
+          <p class="text-xs text-slate-400 mb-3">PDF veya TXT seçip vektör veritabanına indeksleyin.</p>
+          
+          <div class="border-2 border-dashed border-slate-600 hover:border-indigo-500 rounded-xl p-4 text-center cursor-pointer transition bg-slate-800/40" onclick="document.getElementById('file-input').click()">
+            <input type="file" id="file-input" class="hidden" accept=".pdf,.txt" onchange="handleFileUpload(event)">
+            <i class="fa-solid fa-cloud-arrow-up text-2xl text-indigo-400 mb-2"></i>
+            <p class="text-xs font-medium text-slate-300" id="file-label">Dosya Seç (PDF / TXT)</p>
+            <p class="text-[10px] text-slate-500 mt-1">PyMuPDF ayrıştırıcı ile indekslenir</p>
+          </div>
+          <div id="upload-status" class="mt-2 text-xs text-center hidden"></div>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+              <i class="fa-solid fa-layer-group text-indigo-400"></i> İndekslenen Kaynaklar
+            </h2>
+            <button onclick="fetchMaterials()" class="text-xs text-indigo-400 hover:underline">Yenile</button>
+          </div>
+          <div id="material-list" class="space-y-2 max-h-56 overflow-y-auto pr-1">
+            <div class="text-xs text-slate-500 italic text-center py-4">Henüz indeksli doküman yok</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-4 border-t border-slate-700 space-y-2">
+        <button onclick="resetStore()" class="w-full bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 text-xs py-2 px-3 rounded-lg font-medium transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-trash-can"></i> ChromaDB İndeksini Sıfırla
+        </button>
+      </div>
+    </aside>
+
+    <!-- Chat Area -->
+    <main class="flex-1 flex flex-col bg-slate-900 justify-between">
+      
+      <!-- Mode Selector -->
+      <div class="bg-slate-800/40 border-b border-slate-800 px-6 py-2.5 flex items-center justify-between text-xs">
+        <div class="flex items-center space-x-2">
+          <span class="text-slate-400">Arama Modu:</span>
+          <button id="mode-rag" onclick="setMode(true)" class="px-3 py-1 rounded-md bg-indigo-600 text-white font-medium transition flex items-center gap-1.5 shadow-sm">
+            <i class="fa-solid fa-book-bookmark"></i> Materyal Tabanlı (RAG)
+          </button>
+          <button id="mode-general" onclick="setMode(false)" class="px-3 py-1 rounded-md bg-slate-700/60 text-slate-300 hover:bg-slate-700 transition flex items-center gap-1.5">
+            <i class="fa-solid fa-comments"></i> Genel Sohbet
+          </button>
+        </div>
+        <div class="text-slate-500">Kosinüs / L2 Mesafe Eşiği: 1.5</div>
+      </div>
+
+      <!-- Messages Stream Container -->
+      <div id="messages-box" class="flex-1 overflow-y-auto p-6 space-y-4">
+        <!-- Bot Welcome -->
+        <div class="flex items-start space-x-3 chat-bubble">
+          <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs text-white shadow">
+            <i class="fa-solid fa-robot"></i>
+          </div>
+          <div class="bg-slate-800 border border-slate-700 p-4 rounded-2xl rounded-tl-none max-w-2xl">
+            <p class="text-sm text-slate-200 leading-relaxed">
+              Merhaba! Ben <strong>Çok Modlu RAG Çalışma Asistanı</strong>. Sol menüden akademik dokümanlar (PDF/TXT) yükleyebilir ve doğrudan materyalinize dayalı doğrulanabilir sorular sorabilirsiniz. Kullandığım her bilgi için [kaynak N] atıfları üretebilirim.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input Form -->
+      <div class="p-4 bg-slate-800/50 border-t border-slate-800">
+        <form onsubmit="handleSend(event)" class="flex items-center space-x-3 max-w-4xl mx-auto">
+          <input type="text" id="query-input" placeholder="Dokümanlarınız hakkında bir soru sorun (ör. 'RAG pipeline aşamaları nelerdir?')..." 
+            class="flex-1 bg-slate-900 border border-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 outline-none transition shadow-inner">
+          <button type="submit" id="send-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-xl text-sm font-semibold transition flex items-center gap-2 shadow-lg shadow-indigo-600/30">
+            <span>Gönder</span>
+            <i class="fa-solid fa-paper-plane text-xs"></i>
+          </button>
+        </form>
+      </div>
+
+    </main>
+
+  </div>
+
+  <script>
+    const API_BASE = "http://localhost:8000";
+    let useMaterialContext = true;
+
+    function setMode(isRag) {
+      useMaterialContext = isRag;
+      const ragBtn = document.getElementById("mode-rag");
+      const genBtn = document.getElementById("mode-general");
+      if (isRag) {
+        ragBtn.className = "px-3 py-1 rounded-md bg-indigo-600 text-white font-medium transition flex items-center gap-1.5 shadow-sm";
+        genBtn.className = "px-3 py-1 rounded-md bg-slate-700/60 text-slate-300 hover:bg-slate-700 transition flex items-center gap-1.5";
+      } else {
+        genBtn.className = "px-3 py-1 rounded-md bg-indigo-600 text-white font-medium transition flex items-center gap-1.5 shadow-sm";
+        ragBtn.className = "px-3 py-1 rounded-md bg-slate-700/60 text-slate-300 hover:bg-slate-700 transition flex items-center gap-1.5";
+      }
+    }
+
+    async function checkHealth() {
+      const badge = document.getElementById("backend-status");
+      try {
+        const res = await fetch(`${API_BASE}/health`);
+        if (res.ok) {
+          const data = await res.json();
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Aktif (${data.provider.toUpperCase()} - ${data.llm})`;
+          badge.className = "px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5";
+        } else { throw new Error(); }
+      } catch (e) {
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-400"></span> Backend Çevrimdışı (8000)`;
+        badge.className = "px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center gap-1.5";
+      }
+    }
+
+    async function fetchMaterials() {
+      const listEl = document.getElementById("material-list");
+      try {
+        const res = await fetch(`${API_BASE}/materials`);
+        const data = await res.json();
+        if (!data.materials || data.materials.length === 0) {
+          listEl.innerHTML = `<div class="text-xs text-slate-500 italic text-center py-4">Henüz indeksli doküman yok</div>`;
+          return;
+        }
+        listEl.innerHTML = data.materials.map(m => `
+          <div class="bg-slate-900/60 border border-slate-700/70 p-2.5 rounded-lg flex items-center justify-between text-xs">
+            <span class="truncate text-slate-300 font-medium max-w-[170px]" title="${m.source}">${m.source}</span>
+            <span class="bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded text-[11px] font-semibold border border-indigo-500/30">${m.chunks} parça</span>
+          </div>
+        `).join("");
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function handleFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const statusEl = document.getElementById("upload-status");
+      statusEl.classList.remove("hidden");
+      statusEl.innerText = `${file.name} yükleniyor ve indeksleniyor...`;
+      statusEl.className = "mt-2 text-xs text-center text-indigo-400 font-medium";
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const res = await fetch(`${API_BASE}/upload`, { method: "POST", body: formData });
+        const data = await res.json();
+        statusEl.innerText = `Başarılı! ${data.indexed_chunks} parça indekslendi.`;
+        statusEl.className = "mt-2 text-xs text-center text-emerald-400 font-semibold";
+        fetchMaterials();
+      } catch (err) {
+        statusEl.innerText = `Yükleme hatası: ${err.message}`;
+        statusEl.className = "mt-2 text-xs text-center text-rose-400";
+      }
+    }
+
+    async function resetStore() {
+      if (!confirm("Tüm vektör indeksi ve kayıtlı dokümanlar silinsin mi?")) return;
+      try {
+        await fetch(`${API_BASE}/reset`, { method: "POST" });
+        fetchMaterials();
+        alert("ChromaDB indeksi sıfırlandı.");
+      } catch (err) {
+        alert("Hata: " + err.message);
+      }
+    }
+
+    async function handleSend(e) {
+      e.preventDefault();
+      const input = document.getElementById("query-input");
+      const text = input.value.trim();
+      if (!text) return;
+
+      input.value = "";
+      appendMessage("user", text);
+
+      const botMsgId = "msg-" + Date.now();
+      appendMessage("bot", '<span class="inline-block animate-pulse">Cevap hazırlanıyor...</span>', botMsgId);
+
+      try {
+        const response = await fetch(`${API_BASE}/chat-stream`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text, use_context: useMaterialContext })
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullText = "";
+        let metaParsed = false;
+        let sources = [];
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          
+          if (!metaParsed) {
+            const firstNewline = chunk.indexOf("\n");
+            if (firstNewline !== -1) {
+              const metaLine = chunk.slice(0, firstNewline);
+              try {
+                const meta = JSON.parse(metaLine);
+                sources = meta.sources || [];
+              } catch (_) {}
+              fullText += chunk.slice(firstNewline + 1);
+              metaParsed = true;
+            } else {
+              continue;
+            }
+          } else {
+            fullText += chunk;
+          }
+
+          updateBotMessage(botMsgId, fullText, sources);
+        }
+      } catch (err) {
+        updateBotMessage(botMsgId, `<span class="text-rose-400">Hata oluştu: ${err.message}</span>`);
+      }
+    }
+
+    function appendMessage(role, content, id) {
+      const container = document.getElementById("messages-box");
+      const div = document.createElement("div");
+      div.className = "flex items-start space-x-3 chat-bubble";
+      if (id) div.id = id;
+
+      if (role === "user") {
+        div.innerHTML = `
+          <div class="flex-1 flex justify-end">
+            <div class="bg-indigo-600 text-white p-3.5 rounded-2xl rounded-tr-none max-w-2xl text-sm leading-relaxed shadow">
+              ${escapeHtml(content)}
+            </div>
+          </div>
+          <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs text-white shadow">
+            <i class="fa-solid fa-user"></i>
+          </div>
+        `;
+      } else {
+        div.innerHTML = `
+          <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs text-white shadow">
+            <i class="fa-solid fa-robot"></i>
+          </div>
+          <div class="bg-slate-800 border border-slate-700 p-4 rounded-2xl rounded-tl-none max-w-2xl text-sm leading-relaxed text-slate-200 shadow">
+            <div class="msg-content">${content}</div>
+          </div>
+        `;
+      }
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function updateBotMessage(id, text, sources = []) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const contentEl = el.querySelector(".msg-content");
+      
+      let sourceBadges = "";
+      if (sources.length > 0) {
+        sourceBadges = `<div class="mt-3 pt-2.5 border-t border-slate-700 flex flex-wrap gap-1.5 text-xs">
+          <span class="text-slate-400 font-medium">Doğrulanan Kaynaklar:</span>
+          ${sources.map(s => `<span class="bg-slate-700/80 px-2 py-0.5 rounded text-indigo-300 font-mono text-[11px]">[kaynak ${s.n}] ${s.source}#${s.chunk}</span>`).join("")}
+        </div>`;
+      }
+      contentEl.innerHTML = text.replace(/\n/g, "<br>") + sourceBadges;
+      const container = document.getElementById("messages-box");
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function escapeHtml(string) {
+      return String(string).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Başlangıç kontrolleri
+    checkHealth();
+    fetchMaterials();
+  </script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "Calisma Asistani",
+    "slug": "calisma-asistani",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Not fotografi cekmek icin kamera izni gerekli."
+        }
+      ],
+      "expo-document-picker",
+      "expo-asset"
+    ]
+  }
+}

@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  rag-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: rag_akilli_asistan_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PROVIDER=${PROVIDER:-cloud}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - OLLAMA_BASE_URL=http://ollama:11434/v1
+      - CHROMA_DIR=/app/chroma_db
+    volumes:
+      - chroma_storage:/app/chroma_db
+      - ./ornek_girdiler:/app/ornek_girdiler:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # İsteğe Bağlı: Tamamen Yerel ve İnternetsiz Çalışma İçin Ollama Servisi
+  ollama:
+    image: ollama/ollama:latest
+    container_name: rag_ollama_local
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    profiles:
+      - local
+
+volumes:
+  chroma_storage:
+    name: rag_chroma_data
+  ollama_models:
+    name: rag_ollama_models

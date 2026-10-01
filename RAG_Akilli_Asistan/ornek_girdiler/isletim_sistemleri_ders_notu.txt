@@ -1,0 +1,23 @@
+# Bilgisayar Mühendisliği: İşletim Sistemleri ve Eşzamanlılık Ders Notu
+
+## 1. İşlem (Process) ve İş Parçacığı (Thread) Yönetimi
+Bir işlem, belleğe yüklenmiş ve çalışmakta olan bir program örneğidir. Her işlemin kendine ait adres uzayı, yığın (stack), veri bölümü ve program sayacı (PC) vardır. İş parçacıkları ise aynı işlem alanını paylaşan hafif yürütme birimleridir.
+
+## 2. Eşzamanlılık (Concurrency) ve Kritik Bölge Problemi
+Birden fazla iş parçacığı veya işlem paylaşılan bir kaynağa (bellek, dosya, veritabanı) aynı anda eriştiğinde veri tutarsızlığı (race condition) oluşabilir. Bu durumu önlemek için senkronizasyon mekanizmaları kullanılır:
+- **Mutex (Mutual Exclusion):** Yalnızca tek bir thread'in kritik bölgeye girmesine izin veren ikili kilit mekanizmasıdır.
+- **Semafor (Semaphore):** Edsger Dijkstra tarafından tasarlanan, sayaç tabanlı bir senkronizasyon ilkelidir. 'wait()' (P) ve 'signal()' (V) atomik işlemleriyle çalışır.
+
+## 3. Kilitlenme (Deadlock) Koşulları
+Bir sistemin kilitlenmeye girebilmesi için Coffman tarafından tanımlanan 4 koşulun aynı anda gerçekleşmesi gerekir:
+1. Karşılıklı Dışlama (Mutual Exclusion): Kaynaklar paylaşılamaz olmalıdır.
+2. Tut ve Bekle (Hold and Wait): Bir kaynağı tutan süreç, başkaca bir kaynak bekleyebilmelidir.
+3. Kesintisizlik (No Preemption): Kaynaklar bir sürecin elinden zorla alınamaz.
+4. Dairesel Bekleme (Circular Wait): Süreçler arasında dairesel bir bekleme zinciri oluşmalıdır.
+
+## 4. Bellek Yönetimi ve Sayfalama (Paging)
+Sanal bellek mimarisi, fiziksel RAM boyutundan daha büyük adres uzaylarının kullanılmasına olanak tanır.
+- Sayfa (Page): Mantıksal belleğin sabit boyutlu bloklarıdır.
+- Çerçeve (Frame): Fiziksel belleğin sabit boyutlu bloklarıdır.
+- TLB (Translation Lookaside Buffer): Sayfa tablosu aramalarını hızlandıran donanımsal önbellektir.
+- Sayfa Hatası (Page Fault): İstenen sayfa fiziksel bellekte bulunmadığında oluşan donanım kesmesidir.

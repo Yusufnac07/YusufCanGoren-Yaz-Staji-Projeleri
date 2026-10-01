@@ -1,0 +1,12 @@
+fastapi==0.115.*
+uvicorn[standard]==0.32.*
+python-multipart==0.0.*
+pydantic==2.*
+openai==1.*                 # Hem Groq (OpenAI-uyumlu) hem Ollama (OpenAI-uyumlu) icin TEK SDK
+google-genai==1.*           # Sadece cloud modunda VLM (Gemini) icin
+sentence-transformers==3.*
+chromadb==0.5.*
+pymupdf>=1.24.0                # Yüksek hızlı PDF ayrıştırıcı (C tabanlı MuPDF motoru)
+pypdf==5.*
+python-dotenv==1.*
+Pillow==12.*                # Ollama vision oncesi buyuk fotolari kucultmek icin
